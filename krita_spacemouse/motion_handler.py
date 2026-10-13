@@ -112,16 +112,27 @@ def process_motion_event(self, axis_inputs):
         libspnav.spnav_remove_events(SPNAV_EVENT_MOTION)
 
     if zoom_delta != 0:
-        zoom_action = "view_zoom_in" if zoom_delta > 0 else "view_zoom_out"
-        action = Krita.instance().action(zoom_action)
-        if action:
-            steps = int(abs(zoom_delta) * 10)
-            for _ in range(steps):
-                action.trigger()
-            debug_print(f"Zoomed {'in' if zoom_delta > 0 else 'out'} by {steps} steps", 1, debug_level=docker.debug_level_value)
-            libspnav.spnav_remove_events(SPNAV_EVENT_MOTION)
-        else:
-            debug_print(f"Zoom action {zoom_action} not found", 1, debug_level=docker.debug_level_value)
+        # Continuous zoom through the Canvas API instead of the discrete
+        # view_zoom_in/out actions: the zoom changes by a small factor every poll.
+        # Canvas.zoomLevel() returns the zoom scaled by a per-document factor
+        # (resolution), while setZoomLevel() expects the plain level (1.0 = 100%):
+        # measure that factor once per resolution and cache it.
+        ZOOM_RATE = 0.5
+        doc = view.document()
+        key = doc.resolution() if doc else 0
+        cache = getattr(self, "_zoom_scale_cache", None)
+        if cache is None:
+            cache = self._zoom_scale_cache = {}
+        raw = canvas.zoomLevel()
+        k = cache.get(key)
+        if k is None:
+            canvas.setZoomLevel(1.0)
+            k = canvas.zoomLevel() or 1.0
+            cache[key] = k
+        new_level = max(0.01, min(64.0, (raw / k) * math.exp(zoom_delta * ZOOM_RATE)))
+        canvas.setZoomLevel(new_level)
+        debug_print(f"Zoom level: {new_level:.3f}", 2, debug_level=docker.debug_level_value)
+        libspnav.spnav_remove_events(SPNAV_EVENT_MOTION)
 
     if rotation_delta != 0:
         current_rotation = canvas.rotation()
