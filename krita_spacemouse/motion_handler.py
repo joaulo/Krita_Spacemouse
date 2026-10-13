@@ -8,8 +8,10 @@ import math
 
 def process_motion_event(self, axis_inputs):
     docker = self.docker
-    max_input = 500
+    # Full-travel value reported by the device (e.g. 350 for SpaceMouse Enterprise/Pro)
+    max_input = docker.advanced_tab.max_input_slider.value() if hasattr(docker, 'advanced_tab') else 500
     dx = dy = zoom_delta = rotation_delta = 0
+    fx = fy = 0.0
     zoom_scale = 0.002
     rotation_scale = 0.02
     modifiers = Qt.NoModifier
@@ -21,6 +23,8 @@ def process_motion_event(self, axis_inputs):
     # Rescale sensitivity: 0-100% maps to 0-0.3 (30% from last version = 100% now)
     global_sensitivity_raw = docker.advanced_tab.sensitivity_slider.value() if hasattr(docker, 'advanced_tab') else 100
     global_sensitivity = global_sensitivity_raw / 333.33  # 100% = 0.3 effective
+    dominant_motion = docker.advanced_tab.dominant_motion_checkbox.isChecked() if hasattr(docker, 'advanced_tab') else False
+    motion_strength = {}  # strongest normalized input per motion group (Pan / Zoom / Rotation)
 
     for sm_axis in ["x", "y", "z", "rx", "ry", "rz"]:
         action = docker.settings.puck_mappings.get(sm_axis.upper(), "None")
@@ -48,7 +52,7 @@ def process_motion_event(self, axis_inputs):
             sensitivity = global_sensitivity * settings["sensitivity"]
             invert = -1 if settings["invert"] else 1
             dead_zone = settings["dead_zone"]
-            normalized_input = max(0, min(1, (abs(raw_input) - dead_zone) / (max_input - dead_zone))) if abs(raw_input) >= dead_zone else 0
+            normalized_input = max(0, min(1, (abs(raw_input) - dead_zone) / max(1, max_input - dead_zone))) if abs(raw_input) >= dead_zone else 0
             try:
                 curve_output = docker.curves_tab.curve_editors[axis_key].get_curve_value(normalized_input)
             except KeyError:
@@ -57,15 +61,18 @@ def process_motion_event(self, axis_inputs):
             scaled_value = curve_output * max_input * sensitivity * (1 if raw_input >= 0 else -1) * invert
 
             if abs(raw_input) >= dead_zone:
+                locked = (axis_key == "Zoom" and self.lock_zoom) or (axis_key == "Rotation" and self.lock_rotation)
+                if not locked:
+                    group = "Pan" if axis_key in ("X", "Y") else axis_key
+                    motion_strength[group] = max(motion_strength.get(group, 0.0), normalized_input)
                 if axis_key == "X":
-                    dx = int(scaled_value)
+                    fx = scaled_value
                 elif axis_key == "Y":
-                    dy = int(scaled_value)
+                    fy = scaled_value
                 elif axis_key == "Zoom" and not self.lock_zoom:
                     zoom_delta = scaled_value * zoom_scale
                 elif axis_key == "Rotation" and not self.lock_rotation:
                     rotation_delta = max(min(scaled_value * rotation_scale, 10.0), -10.0)
-                    rotation_delta = round(rotation_delta, 0)
         elif isinstance(action, dict) and "negative" in action and "positive" in action:
             dead_zone = global_dead_zone + docker.settings.axis_settings.get(sm_axis.upper(), {}).get("dead_zone_offset", 0)
             if abs(raw_input) >= dead_zone:
@@ -81,6 +88,16 @@ def process_motion_event(self, axis_inputs):
                         debug_print(f"Krita action '{action_name}' not found", 1, debug_level=docker.debug_level_value)
         else:
             debug_print(f"Invalid puck mapping for {sm_axis}: {action}", 1, debug_level=docker.debug_level_value)
+
+    # Sub-pixel pan: keep the fractional part for the next poll instead of
+    # truncating it, so slow pushes still move the canvas smoothly.
+    carry = getattr(self, "_pan_carry", None) or [0.0, 0.0]
+    carry[0] = carry[0] + fx if fx else 0.0
+    carry[1] = carry[1] + fy if fy else 0.0
+    dx, dy = int(carry[0]), int(carry[1])
+    carry[0] -= dx
+    carry[1] -= dy
+    self._pan_carry = carry
 
     qwin = Krita.instance().activeWindow().qwindow()
     subwindow = qwin.findChild(QMdiArea).currentSubWindow()
@@ -99,6 +116,17 @@ def process_motion_event(self, axis_inputs):
 
     view = Krita.instance().activeWindow().activeView()
     canvas = view.canvas()
+
+    # Dominant motion: apply only the strongest group, so a slight twist of the
+    # puck does not leak into pan (and vice versa).
+    if dominant_motion and motion_strength:
+        winner = max(motion_strength, key=motion_strength.get)
+        if winner != "Pan":
+            dx = dy = 0
+        if winner != "Zoom":
+            zoom_delta = 0
+        if winner != "Rotation":
+            rotation_delta = 0
 
     if dx != 0 or dy != 0:
         if modifiers & Qt.ShiftModifier:

@@ -90,15 +90,21 @@ class SettingsManager:
                     global_sensitivity = settings.get("global_sensitivity", 100)
                     self.parent.advanced_tab.sensitivity_slider.setValue(global_sensitivity)
                     self.parent.advanced_tab.sensitivity_label.setText(f"Global Sensitivity: {global_sensitivity}%")
+                    max_input = settings.get("max_input", 500)
+                    self.parent.advanced_tab.max_input_slider.setValue(max_input)
+                    self.parent.advanced_tab.max_input_label.setText(f"Axis Max Input: {max_input}")
                     long_press_duration = settings.get("long_press_duration", 500)
                     self.parent.advanced_tab.long_press_slider.setValue(long_press_duration)
                     self.parent.advanced_tab.long_press_label.setText(f"Long Press Duration: {long_press_duration}ms")
+                    self.parent.advanced_tab.dominant_motion_checkbox.setChecked(settings.get("dominant_motion", False))
                 else:
                     self.parent.debug_level_value = settings.get("debug_level", 1)
                     self.parent.polling_interval = settings.get("polling_interval", 10)
                     self.parent.global_dead_zone = settings.get("global_dead_zone", 130)
                     self.parent.global_sensitivity = settings.get("global_sensitivity", 100)
+                    self.parent.max_input = settings.get("max_input", 500)
                     self.parent.long_press_duration = settings.get("long_press_duration", 500)
+                    self.parent.dominant_motion = settings.get("dominant_motion", False)
 
                 loaded_mappings = settings.get("button_mappings", self.button_presets["Default"].copy())
                 self.button_mappings = {}
@@ -153,9 +159,11 @@ class SettingsManager:
             if hasattr(self.parent, 'advanced_tab'):
                 self.parent.debug_level_value = 1
                 self.parent.advanced_tab.debug_level.setCurrentIndex(1)
+                self.parent.advanced_tab.dominant_motion_checkbox.setChecked(False)
                 self.parent.advanced_tab.polling_slider.setValue(10)
                 self.parent.advanced_tab.dead_zone_slider.setValue(130)
                 self.parent.advanced_tab.sensitivity_slider.setValue(100)
+                self.parent.advanced_tab.max_input_slider.setValue(500)
             else:
                 self.parent.debug_level_value = 1
         self.load_button_preset("Default")
@@ -168,18 +176,21 @@ class SettingsManager:
             "button_presets": self.button_presets,
             "custom_presets": self.parent.curves_tab.custom_presets if hasattr(self.parent, 'curves_tab') else {},
             "puck_mappings": self.puck_mappings,
-            "long_press_duration": self.parent.advanced_tab.long_press_slider.value() if hasattr(self.parent, 'advanced_tab') else getattr(self.parent, 'long_press_duration', 500)
+            "long_press_duration": self.parent.advanced_tab.long_press_slider.value() if hasattr(self.parent, 'advanced_tab') else getattr(self.parent, 'long_press_duration', 500),
+            "dominant_motion": self.parent.advanced_tab.dominant_motion_checkbox.isChecked() if hasattr(self.parent, 'advanced_tab') else getattr(self.parent, 'dominant_motion', False)
         }
         if hasattr(self.parent, 'advanced_tab'):
             settings["debug_level"] = self.parent.advanced_tab.debug_level.currentIndex()
             settings["polling_interval"] = self.parent.advanced_tab.polling_slider.value()
             settings["global_dead_zone"] = self.parent.advanced_tab.dead_zone_slider.value()
             settings["global_sensitivity"] = self.parent.advanced_tab.sensitivity_slider.value()
+            settings["max_input"] = self.parent.advanced_tab.max_input_slider.value()
         else:
             settings["debug_level"] = getattr(self.parent, 'debug_level_value', 1)
             settings["polling_interval"] = getattr(self.parent, 'polling_interval', 10)
             settings["global_dead_zone"] = getattr(self.parent, 'global_dead_zone', 130)
             settings["global_sensitivity"] = getattr(self.parent, 'global_sensitivity', 100)
+            settings["max_input"] = getattr(self.parent, 'max_input', 500)
 
         for canvas_axis in ["X (Panning Horizontal)", "Y (Panning Vertical)", "Zoom", "Rotation"]:
             axis_key = canvas_axis.split()[0].lower()
