@@ -10,6 +10,7 @@ def process_motion_event(self, axis_inputs):
     docker = self.docker
     max_input = 500
     dx = dy = zoom_delta = rotation_delta = 0
+    fx = fy = 0.0
     zoom_scale = 0.002
     rotation_scale = 0.02
     modifiers = Qt.NoModifier
@@ -58,14 +59,13 @@ def process_motion_event(self, axis_inputs):
 
             if abs(raw_input) >= dead_zone:
                 if axis_key == "X":
-                    dx = int(scaled_value)
+                    fx = scaled_value
                 elif axis_key == "Y":
-                    dy = int(scaled_value)
+                    fy = scaled_value
                 elif axis_key == "Zoom" and not self.lock_zoom:
                     zoom_delta = scaled_value * zoom_scale
                 elif axis_key == "Rotation" and not self.lock_rotation:
                     rotation_delta = max(min(scaled_value * rotation_scale, 10.0), -10.0)
-                    rotation_delta = round(rotation_delta, 0)
         elif isinstance(action, dict) and "negative" in action and "positive" in action:
             dead_zone = global_dead_zone + docker.settings.axis_settings.get(sm_axis.upper(), {}).get("dead_zone_offset", 0)
             if abs(raw_input) >= dead_zone:
@@ -81,6 +81,16 @@ def process_motion_event(self, axis_inputs):
                         debug_print(f"Krita action '{action_name}' not found", 1, debug_level=docker.debug_level_value)
         else:
             debug_print(f"Invalid puck mapping for {sm_axis}: {action}", 1, debug_level=docker.debug_level_value)
+
+    # Sub-pixel pan: keep the fractional part for the next poll instead of
+    # truncating it, so slow pushes still move the canvas smoothly.
+    carry = getattr(self, "_pan_carry", None) or [0.0, 0.0]
+    carry[0] = carry[0] + fx if fx else 0.0
+    carry[1] = carry[1] + fy if fy else 0.0
+    dx, dy = int(carry[0]), int(carry[1])
+    carry[0] -= dx
+    carry[1] -= dy
+    self._pan_carry = carry
 
     qwin = Krita.instance().activeWindow().qwindow()
     subwindow = qwin.findChild(QMdiArea).currentSubWindow()
