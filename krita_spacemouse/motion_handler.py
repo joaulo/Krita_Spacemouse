@@ -21,6 +21,8 @@ def process_motion_event(self, axis_inputs):
     # Rescale sensitivity: 0-100% maps to 0-0.3 (30% from last version = 100% now)
     global_sensitivity_raw = docker.advanced_tab.sensitivity_slider.value() if hasattr(docker, 'advanced_tab') else 100
     global_sensitivity = global_sensitivity_raw / 333.33  # 100% = 0.3 effective
+    dominant_motion = docker.advanced_tab.dominant_motion_checkbox.isChecked() if hasattr(docker, 'advanced_tab') else False
+    motion_strength = {}  # strongest normalized input per motion group (Pan / Zoom / Rotation)
 
     for sm_axis in ["x", "y", "z", "rx", "ry", "rz"]:
         action = docker.settings.puck_mappings.get(sm_axis.upper(), "None")
@@ -57,6 +59,10 @@ def process_motion_event(self, axis_inputs):
             scaled_value = curve_output * max_input * sensitivity * (1 if raw_input >= 0 else -1) * invert
 
             if abs(raw_input) >= dead_zone:
+                locked = (axis_key == "Zoom" and self.lock_zoom) or (axis_key == "Rotation" and self.lock_rotation)
+                if not locked:
+                    group = "Pan" if axis_key in ("X", "Y") else axis_key
+                    motion_strength[group] = max(motion_strength.get(group, 0.0), normalized_input)
                 if axis_key == "X":
                     dx = int(scaled_value)
                 elif axis_key == "Y":
@@ -99,6 +105,17 @@ def process_motion_event(self, axis_inputs):
 
     view = Krita.instance().activeWindow().activeView()
     canvas = view.canvas()
+
+    # Dominant motion: apply only the strongest group, so a slight twist of the
+    # puck does not leak into pan (and vice versa).
+    if dominant_motion and motion_strength:
+        winner = max(motion_strength, key=motion_strength.get)
+        if winner != "Pan":
+            dx = dy = 0
+        if winner != "Zoom":
+            zoom_delta = 0
+        if winner != "Rotation":
+            rotation_delta = 0
 
     if dx != 0 or dy != 0:
         if modifiers & Qt.ShiftModifier:

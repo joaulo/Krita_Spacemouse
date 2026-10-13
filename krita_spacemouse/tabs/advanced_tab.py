@@ -1,5 +1,5 @@
 # tabs/advanced_tab.py
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QComboBox, QLabel, QSlider, QPushButton
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QComboBox, QLabel, QSlider, QPushButton, QCheckBox
 from PyQt5.QtCore import Qt
 from ..utils import debug_print
 
@@ -56,6 +56,12 @@ class AdvancedTab(QWidget):
         self.layout.addWidget(self.long_press_label)
         self.layout.addWidget(self.long_press_slider)
 
+        self.dominant_motion_checkbox = QCheckBox("Dominant Motion Only")
+        self.dominant_motion_checkbox.setToolTip("Apply only the strongest of pan, zoom and rotation on each update, so a slight twist does not leak into pan (and vice versa)")
+        self.dominant_motion_checkbox.setChecked(False)
+        self.dominant_motion_checkbox.toggled.connect(self.update_dominant_motion)
+        self.layout.addWidget(self.dominant_motion_checkbox)
+
         self.reset_button = QPushButton("Reset to Defaults")
         self.reset_button.setToolTip("Restore polling rate, dead zone, sensitivity, debug level, and long press to defaults")
         self.reset_button.clicked.connect(self.reset_to_defaults)
@@ -82,6 +88,10 @@ class AdvancedTab(QWidget):
         self.parent.save_current_settings()
         debug_print(f"Long press duration set to {value}ms", 1, debug_level=self.parent.debug_level_value)
 
+    def update_dominant_motion(self, checked):
+        self.parent.save_current_settings()
+        debug_print(f"Dominant motion only: {checked}", 1, debug_level=self.parent.debug_level_value)
+
     def reset_to_defaults(self):
         # Set UI elements to default values
         self.polling_slider.setValue(10)
@@ -93,6 +103,7 @@ class AdvancedTab(QWidget):
         self.debug_level.setCurrentIndex(1)  # "1 - Minimal"
         self.long_press_slider.setValue(500)
         self.long_press_label.setText(f"Long Press Duration: 500ms")
+        self.dominant_motion_checkbox.setChecked(False)
 
         # Update extension polling timer
         if hasattr(self.parent, 'extension'):
