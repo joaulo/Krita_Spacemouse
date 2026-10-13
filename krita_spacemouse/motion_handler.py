@@ -8,7 +8,8 @@ import math
 
 def process_motion_event(self, axis_inputs):
     docker = self.docker
-    max_input = 500
+    # Full-travel value reported by the device (e.g. 350 for SpaceMouse Enterprise/Pro)
+    max_input = docker.advanced_tab.max_input_slider.value() if hasattr(docker, 'advanced_tab') else 500
     dx = dy = zoom_delta = rotation_delta = 0
     zoom_scale = 0.002
     rotation_scale = 0.02
@@ -48,7 +49,7 @@ def process_motion_event(self, axis_inputs):
             sensitivity = global_sensitivity * settings["sensitivity"]
             invert = -1 if settings["invert"] else 1
             dead_zone = settings["dead_zone"]
-            normalized_input = max(0, min(1, (abs(raw_input) - dead_zone) / (max_input - dead_zone))) if abs(raw_input) >= dead_zone else 0
+            normalized_input = max(0, min(1, (abs(raw_input) - dead_zone) / max(1, max_input - dead_zone))) if abs(raw_input) >= dead_zone else 0
             try:
                 curve_output = docker.curves_tab.curve_editors[axis_key].get_curve_value(normalized_input)
             except KeyError:

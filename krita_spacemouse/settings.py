@@ -90,6 +90,9 @@ class SettingsManager:
                     global_sensitivity = settings.get("global_sensitivity", 100)
                     self.parent.advanced_tab.sensitivity_slider.setValue(global_sensitivity)
                     self.parent.advanced_tab.sensitivity_label.setText(f"Global Sensitivity: {global_sensitivity}%")
+                    max_input = settings.get("max_input", 500)
+                    self.parent.advanced_tab.max_input_slider.setValue(max_input)
+                    self.parent.advanced_tab.max_input_label.setText(f"Axis Max Input: {max_input}")
                     long_press_duration = settings.get("long_press_duration", 500)
                     self.parent.advanced_tab.long_press_slider.setValue(long_press_duration)
                     self.parent.advanced_tab.long_press_label.setText(f"Long Press Duration: {long_press_duration}ms")
@@ -98,6 +101,7 @@ class SettingsManager:
                     self.parent.polling_interval = settings.get("polling_interval", 10)
                     self.parent.global_dead_zone = settings.get("global_dead_zone", 130)
                     self.parent.global_sensitivity = settings.get("global_sensitivity", 100)
+                    self.parent.max_input = settings.get("max_input", 500)
                     self.parent.long_press_duration = settings.get("long_press_duration", 500)
 
                 loaded_mappings = settings.get("button_mappings", self.button_presets["Default"].copy())
@@ -156,6 +160,7 @@ class SettingsManager:
                 self.parent.advanced_tab.polling_slider.setValue(10)
                 self.parent.advanced_tab.dead_zone_slider.setValue(130)
                 self.parent.advanced_tab.sensitivity_slider.setValue(100)
+                self.parent.advanced_tab.max_input_slider.setValue(500)
             else:
                 self.parent.debug_level_value = 1
         self.load_button_preset("Default")
@@ -175,11 +180,13 @@ class SettingsManager:
             settings["polling_interval"] = self.parent.advanced_tab.polling_slider.value()
             settings["global_dead_zone"] = self.parent.advanced_tab.dead_zone_slider.value()
             settings["global_sensitivity"] = self.parent.advanced_tab.sensitivity_slider.value()
+            settings["max_input"] = self.parent.advanced_tab.max_input_slider.value()
         else:
             settings["debug_level"] = getattr(self.parent, 'debug_level_value', 1)
             settings["polling_interval"] = getattr(self.parent, 'polling_interval', 10)
             settings["global_dead_zone"] = getattr(self.parent, 'global_dead_zone', 130)
             settings["global_sensitivity"] = getattr(self.parent, 'global_sensitivity', 100)
+            settings["max_input"] = getattr(self.parent, 'max_input', 500)
 
         for canvas_axis in ["X (Panning Horizontal)", "Y (Panning Vertical)", "Zoom", "Rotation"]:
             axis_key = canvas_axis.split()[0].lower()

@@ -46,6 +46,16 @@ class AdvancedTab(QWidget):
         self.layout.addWidget(self.sensitivity_label)
         self.layout.addWidget(self.sensitivity_slider)
 
+        self.max_input_slider = QSlider(Qt.Horizontal)
+        self.max_input_slider.setToolTip("Full-travel value your device reports on each axis (e.g. 350 for SpaceMouse Enterprise/Pro); axis input is normalized against this")
+        self.max_input_slider.setMinimum(100)
+        self.max_input_slider.setMaximum(1000)
+        self.max_input_slider.setValue(500)
+        self.max_input_slider.valueChanged.connect(self.update_max_input)
+        self.max_input_label = QLabel(f"Axis Max Input: {self.max_input_slider.value()}")
+        self.layout.addWidget(self.max_input_label)
+        self.layout.addWidget(self.max_input_slider)
+
         self.long_press_slider = QSlider(Qt.Horizontal)
         self.long_press_slider.setToolTip("Set duration for a button press to count as long press")
         self.long_press_slider.setMinimum(100)  # 100ms
@@ -57,7 +67,7 @@ class AdvancedTab(QWidget):
         self.layout.addWidget(self.long_press_slider)
 
         self.reset_button = QPushButton("Reset to Defaults")
-        self.reset_button.setToolTip("Restore polling rate, dead zone, sensitivity, debug level, and long press to defaults")
+        self.reset_button.setToolTip("Restore polling rate, dead zone, sensitivity, axis max input, debug level, and long press to defaults")
         self.reset_button.clicked.connect(self.reset_to_defaults)
         self.layout.addWidget(self.reset_button)
 
@@ -76,6 +86,11 @@ class AdvancedTab(QWidget):
         self.parent.save_current_settings()
         debug_print(f"Global sensitivity set to {value}%", 1, debug_level=self.parent.debug_level_value)
 
+    def update_max_input(self, value):
+        self.max_input_label.setText(f"Axis Max Input: {value}")
+        self.parent.save_current_settings()
+        debug_print(f"Axis max input set to {value}", 1, debug_level=self.parent.debug_level_value)
+
     def update_long_press_duration(self, value):
         self.long_press_label.setText(f"Long Press Duration: {value}ms")
         self.parent.long_press_duration = value  # Store in docker
@@ -90,6 +105,8 @@ class AdvancedTab(QWidget):
         self.dead_zone_label.setText(f"Global Dead Zone: 130")
         self.sensitivity_slider.setValue(100)
         self.sensitivity_label.setText(f"Global Sensitivity: 100%")
+        self.max_input_slider.setValue(500)
+        self.max_input_label.setText(f"Axis Max Input: 500")
         self.debug_level.setCurrentIndex(1)  # "1 - Minimal"
         self.long_press_slider.setValue(500)
         self.long_press_label.setText(f"Long Press Duration: 500ms")
