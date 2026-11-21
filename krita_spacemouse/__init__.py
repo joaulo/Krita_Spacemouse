@@ -6,7 +6,7 @@ def initialize():
     if app:
         # Register the extension
         app.addExtension(SpacenavControlExtension(app))
-        print("Krita_Spacemouse plugin v1.0 registered")
+        print("Krita_Spacemouse plugin v1.1.0 registered")
 
         # Optional: Log successful initialization for debugging
         from .utils import debug_print
